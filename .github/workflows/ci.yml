@@ -1,0 +1,39 @@
+name: GridGuard laboratory contracts
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        sanitizers: ["OFF", "ON"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gridguard
+          POSTGRES_DB: gridguard
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gridguard"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      GRIDGUARD_TEST_PG: postgresql://gridguard@127.0.0.1:5432/gridguard
+      GRIDGUARD_BUILD: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.lock
+      - run: ruff check . && ruff format --check .
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGRIDGUARD_SANITIZERS=${{ matrix.sanitizers }}
+      - run: cmake --build build --target gridguard_ied gridguard_edge -j2
+      - run: python -m pytest -q
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostics-${{ matrix.sanitizers }}
+          path: build/Testing/Temporary
