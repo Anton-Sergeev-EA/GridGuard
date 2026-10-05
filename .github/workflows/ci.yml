@@ -22,6 +22,8 @@ jobs:
     env:
       GRIDGUARD_TEST_PG: postgresql://gridguard@127.0.0.1:5432/gridguard
       GRIDGUARD_BUILD: build
+      ASAN_OPTIONS: detect_leaks=1
+      UBSAN_OPTIONS: halt_on_error=1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
