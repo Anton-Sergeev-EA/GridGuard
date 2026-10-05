@@ -3,7 +3,8 @@
 An initial, locally tested slice of the planned **Digital Substation & Predictive
 Maintenance Platform**: a C++20 synthetic IED, a C++20 IEC 61850 MMS report client,
 a Python condition-monitoring pipeline, persistent local queue, PostgreSQL export
-and a FastAPI dashboard. **Synthetic data only. No field validation. No RUL.**
+and a FastAPI dashboard. Read-only Modbus TCP, IEC-104, OPC UA and MQTT bridges
+reuse SCADA_Generator adapters. **Laboratory evidence only. No field validation. No RUL.**
 
 This repository is a laboratory demonstrator, not a production deployment or a
 certified IEC 61850 implementation. [Scope and decisions](docs/ADRs.md),
@@ -31,7 +32,7 @@ cmake --build build --target gridguard_ied gridguard_edge gridguard_wal_tests -j
 ctest --test-dir build --output-on-failure
 # Supply an isolated PostgreSQL test database you are allowed to write to:
 export GRIDGUARD_TEST_PG='your-test-database-connection-string'
-GRIDGUARD_BUILD=build .venv/bin/python -m pytest -q
+GRIDGUARD_BUILD=build .venv/bin/python -m pytest -q --ignore=tests/test_bridges.py
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 ```
@@ -87,7 +88,16 @@ results and revisions. The thermal model is illustrative, accelerated and
 uncalibrated; equilibrium residual is a feature, not a fault probability.
 
 GOOSE, SV, SCL commissioning, buffered report recovery, real-device datasets,
-Modbus/IEC-104/OPC UA/MQTT bridges, learned predictive models, continuous retention,
+learned predictive models, continuous retention,
 end-to-end container tests and multivendor/security validation remain outstanding.
 No support for those features is claimed. This code is GPLv3 because it links
 libIEC61850; the stack revision is credited in [ADRs](docs/ADRs.md).
+
+## Optional read-only protocol bridges
+
+Install `requirements-bridges.lock`, then run `python -m pytest tests/test_bridges.py -q`.
+These tests use real local servers and clients for all four adapters, not mocked drivers.
+Run `python -m gridguard.bridge --config YOUR_CONFIG.json --source synthetic` for a lab,
+or explicitly select `external-unvalidated` for external data without a field-validation claim.
+See [bridge mapping and limitations](docs/BRIDGES.md). The default Compose topology uses MMS;
+the optional Python adapters do not imply those protocols are implemented in the C++ gateway.

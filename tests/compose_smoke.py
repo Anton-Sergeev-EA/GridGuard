@@ -20,7 +20,7 @@ def request(path: str, auth: bool = True) -> tuple[int, str]:
             return response.status, response.read().decode()
     except urllib.error.HTTPError as error:
         return error.code, error.read().decode()
-    except urllib.error.URLError:
+    except (urllib.error.URLError, ConnectionError, TimeoutError):
         return 0, "unreachable"
 
 

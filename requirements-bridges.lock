@@ -1,0 +1,15 @@
+-r requirements.lock
+pyModbusTCP==0.3.0
+PyYAML==6.0.3
+asyncua==2.0.1
+aiomqtt==2.5.1
+c104==2.2.1
+sortedcontainers==2.4.0
+pytz==2026.5
+six==1.17.0
+python-dateutil==2.9.0.post0
+cffi==2.1.1
+cryptography==50.0.2
+pyopenssl==26.4.0
+paho-mqtt==2.1.0
+pycparser==3.0

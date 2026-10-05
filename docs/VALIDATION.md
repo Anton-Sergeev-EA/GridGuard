@@ -9,6 +9,8 @@ PostgreSQL 16 ran in an isolated localhost cluster for the integration tests.
 - clang-format check: passed.
 - Full suite before final asset/coherence tests: 19 passed.
 - Full suite after the C++ WAL/checkpoint change with ASan/UBSan: 24 passed.
+- Full suite including optional real Modbus TCP, IEC-104, OPC UA and MQTT
+  servers: 28 passed; native durable-WAL CTest: 1 passed.
 - Both application and linked IEC stack were sanitizer-instrumented.
 - The run reported an upstream Starlette/AnyIO deprecation warning.
 
@@ -25,7 +27,9 @@ The source emitter is deterministic illustrative physics with no industrial
 measurement dataset. URCB loss before C++ WAL sync or while disconnected remains possible.
 
 Docker/Compose and TimescaleDB execution are unverified because no Docker daemon
-was available. The GitHub workflow is a review artifact until it runs on the PR.
+was available locally. A hosted Compose test is now included; the first run failed
+on a startup connection reset in the HTTP test harness. The harness retries that
+transient failure; successful execution must still be established at this revision.
 No merge has been approved.
 
 The previously published implementation revision 3f21e38 passed GitHub CI both
