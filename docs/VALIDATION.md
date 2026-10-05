@@ -32,6 +32,9 @@ Docker/Compose and TimescaleDB execution are unverified because no Docker daemon
 was available locally. A hosted Compose test is now included; the first run failed
 on a startup connection reset in the HTTP test harness. The harness retries that
 transient failure; successful execution must still be established at this revision.
+The corrected hosted Compose/TimescaleDB check passed at 4e0751a. At 89d1814,
+some jobs failed to start: GitHub annotation reported that a hosted runner did not
+acquire the job. These are not passing checks; a rerun was requested.
 No merge has been approved.
 
 The previously published implementation revision 3f21e38 passed GitHub CI both

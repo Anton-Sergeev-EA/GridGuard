@@ -82,6 +82,9 @@ The container recipe and TimescaleDB migration have **not been executed locally*
 because this workspace has no running Docker daemon. The MMS/persistence implementation has passed GitHub CI in ordinary and
 ASan/UBSan builds; [validation](docs/VALIDATION.md) records the tested revision.
 That CI result is not a successful container deployment.
+The hosted Compose/TimescaleDB smoke and archive/source recovery checks passed at
+adapter revision `4e0751a`; later jobs hit a GitHub hosted-runner acquisition failure.
+Current-head checks must be verified before merge.
 
 ## Implemented evidence and pending scope
 
@@ -93,7 +96,8 @@ uncalibrated; equilibrium residual is a feature, not a fault probability.
 
 GOOSE, SV, SCL commissioning, buffered report recovery, real-device datasets,
 learned predictive models, continuous retention,
-end-to-end container tests and multivendor/security validation remain outstanding.
+multivendor/security validation remain outstanding. End-to-end container recovery
+is tested in hosted CI and must pass again at the reviewed head.
 No support for those features is claimed. This code is GPLv3 because it links
 libIEC61850; the stack revision is credited in [ADRs](docs/ADRs.md).
 

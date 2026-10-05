@@ -9,12 +9,13 @@ reconnection. This is laboratory interoperability between two applications using
 the same stack, not independent conformance or multivendor certification.
 
 The GGIO mapping is explicitly project-specific: AnIn1 = temperature °C,
-AnIn2 = load per unit, AnIn3 = illustrative vibration RMS g. It is not a complete
+AnIn2 = load per unit, AnIn3 = illustrative scalar vibration indicator in g. It is not a complete
 substation SCL model. No protection commands are implemented. GOOSE, SV, buffered
 report resumption, SCL import/export, IEC 62351/TLS and redundancy are unsupported.
 
 ## ADR-002: synthetic provenance and physics scope
-All accepted input is synthetic. The IED sets the IEC quality test bit; the
+The IED input is synthetic. Optional bridges require either synthetic or explicitly
+external-unvalidated provenance. The IED sets the IEC quality test bit; the
 schema, API and dashboard preserve source labels. Thermal loss is proportional
 to load squared, cooling follows a first-order lag with time constant 90 simulated
 seconds and an illustrative 55 °C nominal rise. Cooling fault doubles this rise.
@@ -46,16 +47,17 @@ row. A fixed total capacity of 100,000 local rows stops ingest with explicit
 backpressure. Archived rows are not automatically pruned: long-running retention
 and spool rotation must be implemented before continuous operation. SQLite capacity limits row count; the separate C++ WAL also caps its bytes.
 Total filesystem usage is not bounded by those two settings. PostgreSQL is tested;
-TimescaleDB migration and Compose deployment are supplied but not locally verified.
+TimescaleDB migration and Compose deployment passed a hosted smoke/recovery check
+at revision 4e0751a; they were not executed locally. Current-head CI remains a gate.
 
 ## ADR-004: protocols follow a device requirement
-The new project currently implements only the tested MMS report profile.
+The native gateway implements the tested MMS report profile. Optional read-only
+Python adapters implement the other four protocols with real laboratory tests.
 Modbus is justified for auxiliary meters, IEC-104 for RTU/SCADA boundary telemetry,
 OPC UA for an existing enterprise information model, and MQTT for upstream message
-transport. Those are integration decisions, not implemented GridGuard features.
-SCADA_Generator contains real optional adapter implementations and network tests;
-reuse should happen through a versioned service boundary and an explicit mapping
-of quality, timestamp and units, rather than silently relabelling its values as MMS.
+transport. SCADA_Generator's pinned MIT adapters are reused with attribution and
+an explicit three-channel mapping. Gateway receipt timestamps and normalized
+quality are labelled separately from source IEC 61850 metadata; see BRIDGES.md.
 MMS data does not become Modbus/IEC-104/OPC UA/MQTT simply by changing a JSON field.
 
 ## ADR-005: selective portfolio reuse
