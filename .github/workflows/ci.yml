@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   bridges:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +20,7 @@ jobs:
       - run: pip install -r requirements-bridges.lock
       - run: python -m pytest tests/test_bridges.py -q
   verify:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         sanitizers: ["OFF", "ON"]
@@ -57,7 +57,7 @@ jobs:
           name: diagnostics-${{ matrix.sanitizers }}
           path: build/Testing/Temporary
   compose:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     env:
       # Public fixtures for an isolated throwaway CI laboratory, not deployment secrets.
