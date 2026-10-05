@@ -27,6 +27,6 @@ prove correct source time. No maintenance action, safety interlock, fault probab
 or remaining-life prediction can be inferred from this demonstrator.
 
 Shutdown/reconnect are tested for the configured lab. Outage, disk exhaustion,
-process death before commit and full-spool behavior have explicit limitations in
-ADRs. A durable C++ ingress queue, retention, report-loss counters, buffered report
+process death before C++ WAL sync and full-spool behavior have explicit limitations in
+ADRs. The C++ CRC/sync WAL has a 128 MiB cap. Retention, report-loss counters, buffered report
 resumption and independent multivendor fault testing remain required work.

@@ -26,17 +26,26 @@ simulation time must not be treated as equipment life. There is no measured
 industrial dataset, field validation, learned failure model or RUL estimate.
 
 ## ADR-003: bounded local archive and delivery semantics
-A Python supervisor receives the C++ report stream, validates it and commits it
-to SQLite WAL with synchronous=FULL. Only committed local rows have the stated
-restart persistence guarantee. URCB and stdout are not a durable IEC source queue:
-a crash between receiving a report and committing it can lose that report.
+The C++ receiver appends a bounded CRC-protected WAL and calls fdatasync before
+advancing its received/accepted report counter. Completed records survive process
+restart. An exclusive advisory writer lock prevents two gateways appending to the
+same spool. Startup discards an incomplete trailing record; CRC mismatches in
+completed records stop the consumer rather than silently skipping corruption.
+The WAL has a 128 MiB hard limit and refuses new append when full.
+
+A Python supervisor reads that WAL and atomically commits a validated sample and
+the file checkpoint to SQLite WAL with synchronous=FULL. Replay across the two
+stages is idempotent. Persistence begins at successful C++ WAL sync: reports lost
+before that boundary and source events missed while the URCB client is offline
+are not recovered. This is not source-side buffered report resumption or a
+hardware power-loss guarantee on storage that ignores flush semantics.
 
 Export uses at-least-once replay. The PostgreSQL primary key includes event hash
 and source time so an ACK loss after remote commit does not duplicate the remote
 row. A fixed total capacity of 100,000 local rows stops ingest with explicit
 backpressure. Archived rows are not automatically pruned: long-running retention
-and spool rotation must be implemented before continuous operation. Capacity
-limits row count, not total bytes or filesystem usage. PostgreSQL is tested;
+and spool rotation must be implemented before continuous operation. SQLite capacity limits row count; the separate C++ WAL also caps its bytes.
+Total filesystem usage is not bounded by those two settings. PostgreSQL is tested;
 TimescaleDB migration and Compose deployment are supplied but not locally verified.
 
 ## ADR-004: protocols follow a device requirement

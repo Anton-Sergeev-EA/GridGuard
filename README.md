@@ -12,7 +12,7 @@ certified IEC 61850 implementation. [Scope and decisions](docs/ADRs.md),
 ```text
 Physics-informed synthetic IED (libIEC61850, test quality bit)
     → actual MMS/URCB reports → C++20 edge (RAII, reconnect/backoff/jitter)
-    → Python supervisor → SQLite WAL/FULL → PostgreSQL (idempotent replay)
+    → CRC/sync C++ WAL → Python supervisor → SQLite WAL/FULL → PostgreSQL (idempotent replay)
     → FastAPI / readiness / Prometheus endpoint → static browser dashboard
 ```
 
@@ -27,7 +27,8 @@ package hashes. Network access is needed for the initial dependency setup.
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --target gridguard_ied gridguard_edge -j2
+cmake --build build --target gridguard_ied gridguard_edge gridguard_wal_tests -j2
+ctest --test-dir build --output-on-failure
 # Supply an isolated PostgreSQL test database you are allowed to write to:
 export GRIDGUARD_TEST_PG='your-test-database-connection-string'
 GRIDGUARD_BUILD=build .venv/bin/python -m pytest -q
@@ -59,7 +60,8 @@ process liveness; `/health/ready` returns 503 for missing, stale, clock-invalid 
 bad-quality telemetry. `/api/latest` and `/metrics` require bearer authentication.
 Readiness currently describes local ingestion, not remote archive delivery.
 
-The worker stores committed samples in `work/gridguard.sqlite`. The supervisor
+The edge stores synced reports in `work/gridguard.wal` (128 MiB cap).
+The worker commits samples and read checkpoints to `work/gridguard.sqlite`. The supervisor
 must be kept running; it does not restart itself outside Compose. Before enabling
 export apply `deploy/schema.sql` to your archive using your database administration
 workflow. Export reconnects independently while new measurements continue into WAL.
@@ -72,8 +74,9 @@ GRIDGUARD_TOKEN, GRIDGUARD_PG_PASSWORD and GRIDGUARD_PG_DSN; the DSN must use ho
 `docker compose up --build`. Only the API is published on host loopback.
 
 The container recipe and TimescaleDB migration have **not been executed locally**
-because this workspace has no running Docker daemon. The CI workflow is authored
-but has not run on GitHub. Do not present either as a successful deployment.
+because this workspace has no running Docker daemon. The MMS/persistence implementation has passed GitHub CI in ordinary and
+ASan/UBSan builds; [validation](docs/VALIDATION.md) records the tested revision.
+That CI result is not a successful container deployment.
 
 ## Implemented evidence and pending scope
 

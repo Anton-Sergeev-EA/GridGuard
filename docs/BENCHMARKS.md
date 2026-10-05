@@ -14,7 +14,7 @@ and a workload generator independent of the system under test.
 Measure source-to-local-commit and source-to-remote-commit p50/p95/p99, CPU and RSS,
 spool growth and replay drain rate. Count expected, received, committed, exported,
 replayed and lost events; do not hide losses by reporting only successfully
-completed requests. The current URCB/stdout boundary permits loss before commit
+completed requests. The current URCB/WAL boundary permits loss before durable sync
 and must be included in results. Publish raw samples and the aggregation script.
 Use source UTC only after establishing clock offset/uncertainty; monotonic clocks
 on different hosts are not directly comparable.

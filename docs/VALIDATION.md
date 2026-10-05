@@ -8,7 +8,7 @@ PostgreSQL 16 ran in an isolated localhost cluster for the integration tests.
 - Python Ruff check and format check: passed.
 - clang-format check: passed.
 - Full suite before final asset/coherence tests: 19 passed.
-- Full suite after those tests with ASan/UBSan: 21 passed.
+- Full suite after the C++ WAL/checkpoint change with ASan/UBSan: 24 passed.
 - Both application and linked IEC stack were sanitizer-instrumented.
 - The run reported an upstream Starlette/AnyIO deprecation warning.
 
@@ -22,8 +22,14 @@ These results establish the tested laboratory behavior. They do not establish
 IEC conformance, multivendor interoperability, field accuracy, RUL, deployment,
 throughput, hard real-time behavior, high availability or security certification.
 The source emitter is deterministic illustrative physics with no industrial
-measurement dataset. URCB/stdout loss before local commit remains possible.
+measurement dataset. URCB loss before C++ WAL sync or while disconnected remains possible.
 
 Docker/Compose and TimescaleDB execution are unverified because no Docker daemon
 was available. The GitHub workflow is a review artifact until it runs on the PR.
 No merge has been approved.
+
+The previously published implementation revision 3f21e38 passed GitHub CI both
+without and with ASan/UBSan: https://github.com/Anton-Sergeev-EA/GridGuard/actions/runs/37361385183.
+The subsequent C++ WAL change has a local reference-CRC/exclusive-writer/torn-tail
+CTest plus Python process-kill/replay/checksum tests; its CI must be checked at
+its own revision after publication.

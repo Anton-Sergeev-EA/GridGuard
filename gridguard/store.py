@@ -24,6 +24,10 @@ class Store:
                 payload TEXT NOT NULL, assessment TEXT NOT NULL,
                 exported INTEGER NOT NULL DEFAULT 0)
             """)
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS checkpoints "
+                "(source TEXT PRIMARY KEY, offset INTEGER NOT NULL)"
+            )
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
@@ -35,29 +39,40 @@ class Store:
         finally:
             db.close()
 
-    def insert(self, sample: Sample) -> tuple[str, bool]:
+    def insert(self, sample: Sample, checkpoint: tuple[str, int] | None = None) -> tuple[str, bool]:
         if sample.sample_ms > time.time_ns() // 1_000_000 + 1000:
             raise ValueError("future source timestamp")
         payload = sample.model_dump_json()
         identity = hashlib.sha256(payload.encode()).hexdigest()
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            if db.execute("SELECT 1 FROM samples WHERE id = ?", (identity,)).fetchone():
-                return identity, False
-            if db.execute("SELECT COUNT(*) FROM samples").fetchone()[0] >= self.capacity:
-                raise OverflowError("local archive capacity reached; ingest stopped")
-            previous = db.execute(
-                "SELECT sample_ms FROM samples WHERE asset=? ORDER BY sample_ms DESC LIMIT 1",
-                (sample.asset,),
-            ).fetchone()
-            if previous and sample.sample_ms < previous[0]:
-                raise ValueError("out-of-order sample")
-            db.execute(
-                "INSERT INTO samples(id, asset, sample_ms, payload, assessment) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (identity, sample.asset, sample.sample_ms, payload, json.dumps(assess(sample))),
-            )
-        return identity, True
+            inserted = not db.execute("SELECT 1 FROM samples WHERE id = ?", (identity,)).fetchone()
+            if inserted:
+                if db.execute("SELECT COUNT(*) FROM samples").fetchone()[0] >= self.capacity:
+                    raise OverflowError("local archive capacity reached; ingest stopped")
+                previous = db.execute(
+                    "SELECT sample_ms FROM samples WHERE asset=? ORDER BY sample_ms DESC LIMIT 1",
+                    (sample.asset,),
+                ).fetchone()
+                if previous and sample.sample_ms < previous[0]:
+                    raise ValueError("out-of-order sample")
+                db.execute(
+                    "INSERT INTO samples(id, asset, sample_ms, payload, assessment) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (identity, sample.asset, sample.sample_ms, payload, json.dumps(assess(sample))),
+                )
+            if checkpoint is not None:
+                db.execute(
+                    "INSERT INTO checkpoints(source, offset) VALUES (?, ?) "
+                    "ON CONFLICT(source) DO UPDATE SET offset=max(offset, excluded.offset)",
+                    checkpoint,
+                )
+        return identity, bool(inserted)
+
+    def checkpoint(self, source: str) -> int:
+        with self.connect() as db:
+            row = db.execute("SELECT offset FROM checkpoints WHERE source=?", (source,)).fetchone()
+            return row[0] if row else 0
 
     def latest(self) -> dict[str, object] | None:
         with self.connect() as db:

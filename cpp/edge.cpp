@@ -1,5 +1,6 @@
 #include "common.hpp"
 #include "iec61850_client.h"
+#include "wal.hpp"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -12,6 +13,7 @@
 
 namespace {
 struct State {
+    gridguard::Wal *wal = nullptr;
     std::mutex mutex;
     std::array<double, 3> value{};
     std::array<unsigned, 3> quality{};
@@ -60,14 +62,25 @@ void on_report(void *parameter, ClientReport report) {
     }
     if (!std::all_of(state.seen.begin(), state.seen.end(), [](bool seen) { return seen; }))
         return;
-    std::cout << "{\"asset\":\"transformer-lab-1\",\"source\":\"synthetic\","
-                 "\"protocol\":\"iec61850-mms-report\",\"temperature_c\":"
-              << state.value[0] << ",\"load_pu\":" << state.value[1]
-              << ",\"vibration_g\":" << state.value[2] << ",\"sample_ms\":"
-              << *std::max_element(state.timestamp.begin(), state.timestamp.end())
-              << ",\"channel_ms\":[" << state.timestamp[0] << ',' << state.timestamp[1] << ','
-              << state.timestamp[2] << "],\"quality\":[" << state.quality[0] << ','
-              << state.quality[1] << ',' << state.quality[2] << "]}" << std::endl;
+    std::ostringstream payload;
+    payload << "{\"asset\":\"transformer-lab-1\",\"source\":\"synthetic\","
+               "\"protocol\":\"iec61850-mms-report\",\"temperature_c\":"
+            << state.value[0] << ",\"load_pu\":" << state.value[1]
+            << ",\"vibration_g\":" << state.value[2] << ",\"sample_ms\":"
+            << *std::max_element(state.timestamp.begin(), state.timestamp.end())
+            << ",\"channel_ms\":[" << state.timestamp[0] << ',' << state.timestamp[1] << ','
+            << state.timestamp[2] << "],\"quality\":[" << state.quality[0] << ','
+            << state.quality[1] << ',' << state.quality[2] << "]}";
+    try {
+        if (state.wal)
+            state.wal->append(payload.str());
+        else
+            std::cout << payload.str() << std::endl;
+    } catch (const std::exception &) {
+        state.malformed = true;
+        std::cerr << "{\"event\":\"wal_append_failed\"}\n";
+        return;
+    }
     state.last_report_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                std::chrono::steady_clock::now().time_since_epoch())
                                .count();
@@ -80,12 +93,19 @@ int main(int argc, char **argv) {
             throw std::invalid_argument("usage: gridguard_edge HOST PORT [once]");
         const int tcp_port = port(argv[2]);
         const bool once = argc > 3 && std::string(argv[3]) == "once";
+        std::unique_ptr<gridguard::Wal> wal;
+        if (argc > 3 && std::string(argv[3]) == "--wal") {
+            if (argc != 5)
+                throw std::invalid_argument("--wal requires a path");
+            wal = std::make_unique<gridguard::Wal>(argv[4]);
+        }
         std::signal(SIGTERM, stop);
         std::signal(SIGINT, stop);
         unsigned backoff = 100;
         std::mt19937 random(std::random_device{}());
         while (running) {
             State state;
+            state.wal = wal.get();
             std::unique_ptr<sIedConnection, Deleter<IedConnection_destroy>> connection(
                 IedConnection_create());
             IedConnection_setConnectTimeout(connection.get(), 1000);
@@ -138,6 +158,8 @@ int main(int argc, char **argv) {
                 IedConnection_close(connection.get());
             }
             connection.reset(); // Join receiver before callback state leaves scope.
+            if (state.malformed)
+                return 1;
             if (once)
                 return subscribed && state.reports > 0 && !state.malformed ? 0 : 1;
             if (state.reports > 0)

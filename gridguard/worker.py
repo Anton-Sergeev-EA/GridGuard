@@ -4,15 +4,13 @@ import signal
 import subprocess
 import sys
 import threading
-import time
 from pathlib import Path
 from types import FrameType
 
 import psycopg
-from pydantic import ValidationError
 
-from gridguard.schema import Sample
 from gridguard.store import Store
+from gridguard.wal import consume_available, wait_for_wal
 
 
 def export_once(store: Store, dsn: str) -> int:
@@ -55,13 +53,17 @@ def main() -> None:
     )
     if thread:
         thread.start()
+    wal_path = Path(os.environ.get("GRIDGUARD_WAL", str(store.path.with_suffix(".wal"))))
+    wal_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         os.environ.get("GRIDGUARD_EDGE", "build/gridguard_edge"),
         os.environ.get("GRIDGUARD_IED_HOST", "127.0.0.1"),
         os.environ.get("GRIDGUARD_IED_PORT", "8102"),
+        "--wal",
+        str(wal_path),
     ]
     try:
-        with subprocess.Popen(command, stdout=subprocess.PIPE, text=True) as edge:
+        with subprocess.Popen(command) as edge:
 
             def terminate(signum: int, frame: FrameType | None) -> None:
                 stop.set()
@@ -70,25 +72,15 @@ def main() -> None:
             signal.signal(signal.SIGTERM, terminate)
             signal.signal(signal.SIGINT, terminate)
             try:
-                assert edge.stdout is not None
-                for line in edge.stdout:
+                wait_for_wal(wal_path)
+                while not stop.is_set():
                     try:
-                        sample = Sample.model_validate_json(line)
-                    except ValidationError:
-                        print('{"event":"invalid_edge_sample"}', file=sys.stderr)
-                        continue
-                    while not stop.is_set():
-                        try:
-                            store.insert(sample)
-                            break
-                        except OverflowError:
-                            print(
-                                '{"event":"archive_full","action":"backpressure"}', file=sys.stderr
-                            )
-                            time.sleep(1)
-                        except ValueError:
-                            print('{"event":"sample_order_rejected"}', file=sys.stderr)
-                            break
+                        consume_available(store, wal_path)
+                    except OverflowError:
+                        print('{"event":"archive_full","action":"backpressure"}', file=sys.stderr)
+                    if edge.poll() is not None:
+                        raise RuntimeError("edge stopped; inspect structured edge diagnostics")
+                    stop.wait(0.1)
             finally:
                 edge.terminate()
                 try:

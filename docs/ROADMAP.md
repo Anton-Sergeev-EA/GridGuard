@@ -3,8 +3,9 @@
 The initial PR is deliberately labelled a slice. It does not fulfil the complete
 platform request. Remaining engineering gates:
 
-1. Durable C++ ingress spool, report loss accounting, bounded bytes and local
-   retention/rotation; a power-loss/crash recovery suite at the defined commit boundary.
+1. Complete local retention/rotation and source report loss accounting. The C++
+   CRC/sync spool and SQLite checkpoint are now implemented with process-crash
+   tests; hardware power-loss validation remains outside the available setup.
 2. SCL model/reference commissioning, independent MMS interoperability tests,
    buffered reports with resume/overflow tests. GOOSE/SV require their own Ethernet
    test setup and an explicit supported profile before any advertised support.
