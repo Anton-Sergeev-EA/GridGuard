@@ -28,9 +28,12 @@ def unused_port() -> int:
         return sock.getsockname()[1]
 
 
-def start_ied(executable: Path, port: int) -> subprocess.Popen[str]:
+def start_ied(executable: Path, port: int, scenario: str = "normal") -> subprocess.Popen[str]:
     process = subprocess.Popen(
-        [str(executable), str(port)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        [str(executable), str(port), scenario],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     for _ in range(100):
         if process.poll() is not None:
@@ -135,3 +138,29 @@ def test_connection_failure_is_not_success() -> None:
     )
     assert result.returncode != 0
     assert not result.stdout
+
+
+@pytest.mark.parametrize("scenario", ["bearing-fault", "sensor-fault"])
+def test_synthetic_faults_preserve_alarm_or_abstention(scenario: str) -> None:
+    from gridguard.condition import assess
+
+    server, edge = binaries()
+    port = unused_port()
+    process = start_ied(server, port, scenario)
+    try:
+        result = subprocess.run(
+            [str(edge), "127.0.0.1", str(port), "once"], capture_output=True, text=True, timeout=10
+        )
+        assert result.returncode == 0, result.stderr
+        measurement = Sample.model_validate_json(result.stdout.splitlines()[0])
+        assessment = assess(measurement)
+        if scenario == "bearing-fault":
+            assert assessment["is_anomaly"] is True
+        else:
+            assert measurement.quality[0] & 3 == 2
+            assert assessment["is_anomaly"] is None
+        assert assessment["rul"] is None
+    finally:
+        process.terminate()
+        process.wait(timeout=5)
+        assert process.returncode == 0, process.stderr.read()

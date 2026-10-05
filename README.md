@@ -28,7 +28,7 @@ package hashes. Network access is needed for the initial dependency setup.
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --target gridguard_ied gridguard_edge gridguard_wal_tests -j2
+cmake --build build --target gridguard_ied gridguard_edge gridguard_wal_tests gridguard_physics_tests -j2
 ctest --test-dir build --output-on-failure
 # Supply an isolated PostgreSQL test database you are allowed to write to:
 export GRIDGUARD_TEST_PG='your-test-database-connection-string'
@@ -51,6 +51,7 @@ Start each process from the repository root in a separate terminal:
 ```sh
 ./build/gridguard_ied 8102
 # Optional IED scenario: ./build/gridguard_ied 8102 cooling-fault
+# Also available: bearing-fault / sensor-fault; see docs/TELEMETRY.md.
 .venv/bin/python -m gridguard.worker
 # GRIDGUARD_PG_DSN is optional for local-only use; set it to enable remote export.
 .venv/bin/python -m uvicorn gridguard.api:app_factory --factory --host 127.0.0.1 --port 8000
@@ -59,7 +60,10 @@ Start each process from the repository root in a separate terminal:
 Open http://127.0.0.1:8000 and enter your session token. `/health/live` verifies
 process liveness; `/health/ready` returns 503 for missing, stale, clock-invalid or
 bad-quality telemetry. `/api/latest` and `/metrics` require bearer authentication.
-Readiness currently describes local ingestion, not remote archive delivery.
+Readiness describes local ingestion by default and separately reports archive health.
+Set `GRIDGUARD_REQUIRE_ARCHIVE=1` to require a successful exporter heartbeat within
+15 seconds. `/metrics` exposes pending exports and archive readiness. This does not
+verify delivery of every sample or readiness of every configured asset.
 
 The edge stores synced reports in `work/gridguard.wal` (128 MiB cap).
 The worker commits samples and read checkpoints to `work/gridguard.sqlite`. The supervisor

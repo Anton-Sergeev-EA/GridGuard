@@ -11,6 +11,8 @@ PostgreSQL 16 ran in an isolated localhost cluster for the integration tests.
 - Full suite after the C++ WAL/checkpoint change with ASan/UBSan: 24 passed.
 - Full suite including optional real Modbus TCP, IEC-104, OPC UA and MQTT
   servers: 28 passed; native durable-WAL CTest: 1 passed.
+- After source-label, archive-readiness and synthetic fault-scenario changes:
+  31 Python tests and 2 native CTests passed with ASan/UBSan.
 - Both application and linked IEC stack were sanitizer-instrumented.
 - The run reported an upstream Starlette/AnyIO deprecation warning.
 

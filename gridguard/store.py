@@ -28,6 +28,21 @@ class Store:
                 "CREATE TABLE IF NOT EXISTS checkpoints "
                 "(source TEXT PRIMARY KEY, offset INTEGER NOT NULL)"
             )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS runtime (name TEXT PRIMARY KEY, value REAL NOT NULL)"
+            )
+
+    def set_runtime(self, name: str, value: float) -> None:
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO runtime(name,value) VALUES (?,?) "
+                "ON CONFLICT(name) DO UPDATE SET value=excluded.value",
+                (name, value),
+            )
+
+    def runtime(self) -> dict[str, float]:
+        with self.connect() as db:
+            return dict(db.execute("SELECT name,value FROM runtime").fetchall())
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:

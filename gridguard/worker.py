@@ -4,6 +4,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from types import FrameType
 
@@ -34,11 +35,15 @@ def export_once(store: Store, dsn: str) -> int:
 
 def exporter(store: Store, dsn: str, stop: threading.Event) -> None:
     delay = 0.25
+    store.set_runtime("archive_enabled", 1.0)
     while not stop.is_set():
         try:
             export_once(store, dsn)
+            store.set_runtime("archive_last_success", time.time())
+            store.set_runtime("archive_connected", 1.0)
             delay = 0.25
         except (psycopg.Error, OSError):
+            store.set_runtime("archive_connected", 0.0)
             print(json.dumps({"event": "archive_retry", "delay_s": delay}), file=sys.stderr)
             delay = min(delay * 2, 10)
         stop.wait(delay)

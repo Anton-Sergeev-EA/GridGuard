@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include "hal_thread.h"
 #include "iec61850_server.h"
+#include "physics.hpp"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -10,7 +11,7 @@
 int main(int argc, char **argv) {
     try {
         const int tcp_port = argc > 1 ? port(argv[1]) : 8102;
-        const bool cooling_fault = argc > 2 && std::string(argv[2]) == "cooling-fault";
+        gridguard::Physics physics(argc > 2 ? argv[2] : "normal");
         std::signal(SIGINT, stop);
         std::signal(SIGTERM, stop);
         std::unique_ptr<IedModel, Deleter<IedModel_destroy>> model(IedModel_create("GridGuard"));
@@ -49,24 +50,19 @@ int main(int argc, char **argv) {
         if (!IedServer_isRunning(server.get()))
             throw std::runtime_error("IED listen failed");
         std::cerr << "{\"event\":\"ied_started\",\"source\":\"synthetic\"}\n";
-        double temperature = 45.0;
-        double simulation_s = 0.0;
         while (running) {
-            const double load = 0.7 + 0.15 * std::sin(simulation_s / 60.0);
-            const double target = 25.0 + 55.0 * load * load * (cooling_fault ? 2.0 : 1.0);
-            temperature += (target - temperature) * (1.0 - std::exp(-1.0 / 90.0));
-            const std::array<float, 3> reading{
-                static_cast<float>(temperature), static_cast<float>(load),
-                static_cast<float>(0.02 + 0.01 * load + 0.002 * std::sin(simulation_s))};
+            const auto reading = physics.step();
             IedServer_lockDataModel(server.get());
             for (std::size_t i = 0; i < values.size(); ++i) {
                 IedServer_updateFloatAttributeValue(server.get(), values[i], reading[i]);
-                IedServer_updateQuality(server.get(), qualities[i], QUALITY_TEST);
+                IedServer_updateQuality(
+                    server.get(), qualities[i],
+                    QUALITY_TEST |
+                        (physics.invalid_sensor() && i == 0 ? QUALITY_VALIDITY_INVALID : 0));
                 IedServer_updateUTCTimeAttributeValue(server.get(), timestamps[i],
                                                       Hal_getTimeInMs());
             }
             IedServer_unlockDataModel(server.get());
-            simulation_s += 1.0;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         IedServer_stop(server.get());

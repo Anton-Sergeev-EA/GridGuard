@@ -13,6 +13,30 @@ from gridguard.store import Store
 TOKEN = "test-token-only-0123456789"
 
 
+def test_external_source_and_archive_readiness(tmp_path: Path) -> None:
+    store = Store(tmp_path / "archive.sqlite")
+    external = sample().model_dump()
+    external.update(
+        source="external-unvalidated",
+        protocol="mqtt",
+        timestamp_basis="gateway-received",
+        quality_basis="gateway-normalized",
+    )
+    store.insert(Sample.model_validate(external))
+    with TestClient(create_app(store, TOKEN, require_archive=True)) as client:
+        assert client.get("/health/ready").status_code == 503
+        store.set_runtime("archive_connected", 1.0)
+        store.set_runtime("archive_last_success", time.time())
+        ready = client.get("/health/ready")
+        assert ready.status_code == 200
+        assert ready.json()["source"] == "external-unvalidated"
+        store.set_runtime("archive_last_success", time.time() - 20)
+        assert client.get("/health/ready").status_code == 503
+    with TestClient(create_app(store, TOKEN)) as client:
+        assert client.get("/health/ready").status_code == 200
+        assert not client.get("/health/ready").json()["archive_ready"]
+
+
 def sample(stamp: int | None = None, quality: tuple[int, int, int] = (2048, 2048, 2048)) -> Sample:
     stamp = stamp or int(time.time() * 1000)
     return Sample(
@@ -94,7 +118,8 @@ def test_api_auth_readiness_replay_metrics(tmp_path: Path) -> None:
         assert client.get("/health/ready").status_code == 200
         assert client.get("/api/latest", headers=headers).json()["assessment"]["rul"] is None
         assert "gridguard_samples 1" in client.get("/metrics", headers=headers).text
-        assert "SYNTHETIC DATA" in client.get("/").text
+        assert "No field validation" in client.get("/").text
+        assert "Source labelled per sample" in client.get("/").text
 
 
 def test_stale_future_and_quality(tmp_path: Path) -> None:
