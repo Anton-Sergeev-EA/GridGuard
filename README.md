@@ -1,6 +1,6 @@
 # GridGuard — Digital Substation & Condition Monitoring Laboratory
 
-An initial, locally tested slice of the planned **Digital Substation & Predictive
+A tested laboratory implementation of the **Digital Substation & Predictive
 Maintenance Platform**: a C++20 synthetic IED, a C++20 IEC 61850 MMS report client,
 a Python condition-monitoring pipeline, persistent local queue, PostgreSQL export
 and a FastAPI dashboard. Read-only Modbus TCP, IEC-104, OPC UA and MQTT bridges
@@ -28,7 +28,7 @@ package hashes. Network access is needed for the initial dependency setup.
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --target gridguard_ied gridguard_edge gridguard_wal_tests gridguard_physics_tests -j2
+cmake --build build --target gridguard_ied gridguard_edge gridguard_synthetic gridguard_wal_tests gridguard_physics_tests -j2
 ctest --test-dir build --output-on-failure
 # Supply an isolated PostgreSQL test database you are allowed to write to:
 export GRIDGUARD_TEST_PG='your-test-database-connection-string'

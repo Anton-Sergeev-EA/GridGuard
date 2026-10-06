@@ -1,28 +1,32 @@
-# Remaining user-requested scope
+# Delivery gates and engineering extensions
 
-The initial PR is deliberately labelled a slice. It does not fulfil the complete
-platform request. Remaining engineering gates:
+## Current delivery gates
 
-1. Complete local retention/rotation and source report loss accounting. The C++
-   CRC/sync spool and SQLite checkpoint are now implemented with process-crash
-   tests; hardware power-loss validation remains outside the available setup.
-2. SCL model/reference commissioning, independent MMS interoperability tests,
-   buffered reports with resume/overflow tests. GOOSE/SV require their own Ethernet
-   test setup and an explicit supported profile before any advertised support.
-3. Extend the implemented read-only SCADA_Generator adapters to validated device
-   mappings and preserve native protocol timestamps/quality rather than only
-   labelled gateway-received snapshots. Add device-specific interoperability tests.
-4. Richer calibrated synthetic scenarios, dataset/model manifests, signal features
-   from ARGUS-NEURO where their contract fits, held-out run evaluation and honest
-   condition-monitoring baselines. There are no field or RUL performance claims.
-5. Keep the actual Compose/TimescaleDB recovery CI gate green at the reviewed head.
-   The gate passed at 4e0751a; hosted runner acquisition failed on later jobs.
-6. Configured/observed-asset readiness is implemented. Extend it with explicit
-   spool occupancy. Add
-   metrics for reconnects, rejected input, dropped reports, commit/export delay.
-7. Complete portfolio fixes and test their affected repositories. Investigate the
-   failing Currency Analytics Docker build; its unused test imports were isolated
-   into a local patch. RSP/Smart Guard require baseline tests and claim corrections.
-8. Merge only after human approval and required CI; fetch and verify resulting main.
-   Then finalize profile wording and select/update the six pins. GridGuard must not
-   be positioned as a complete flagship before these engineering gates are met.
+- Verify current-head CI, including native sanitizer builds, real protocol tests
+  and Compose/TimescaleDB fault recovery.
+- Obtain explicit approval for merge; fetch and verify resulting main.
+- Finalize the evidence report and profile from actual merged revisions.
+
+Implemented follow-ups: per-configured/observed-asset readiness, spool occupancy,
+scalar feature windows, opt-in remote-acknowledged local retention, stopped-writer
+WAL rotation with durable cleanup receipts and process-crash/ingestion-resume
+checks. Synthetic scenario evaluation records actual results and hashes.
+
+## Unsupported extensions — do not advertise them
+
+The supported IEC profile is real MMS/URCB laboratory reporting with a dynamic
+GGIO model. SCL commissioning, independent multivendor interoperability, buffered
+reports/resumption, GOOSE/SV and IEC 62351 require separate implementation and
+appropriate test equipment. They are not implied by linking the IEC stack.
+
+The deterministic thermal/scalar-vibration scenarios and fixed thresholds are
+illustrative. A calibrated predictive model, population/held-out evaluation,
+field RUL and physical power-loss validation are not established. Raw waveform
+acquisition is required before ARGUS spectral/model contracts can be reused.
+
+Protocol bridges have tested read-only three-channel laboratory mappings and
+explicit gateway timestamps/normalized quality. Device-specific commissioning
+and preservation of native metadata need their own fixtures and device evidence.
+Rotation restarts the URCB client and can lose source reports during that gap;
+lossless source replay is not claimed. PostgreSQL retention and high availability
+remain operator/deployment work, not verified production capabilities.
