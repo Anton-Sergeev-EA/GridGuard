@@ -1,0 +1,77 @@
+name: GridGuard laboratory contracts
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  bridges:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-bridges.lock
+      - run: python -m pytest tests/test_bridges.py -q
+  verify:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        sanitizers: ["OFF", "ON"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gridguard
+          POSTGRES_DB: gridguard
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gridguard"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      GRIDGUARD_TEST_PG: postgresql://gridguard@127.0.0.1:5432/gridguard
+      GRIDGUARD_BUILD: build
+      ASAN_OPTIONS: detect_leaks=1
+      UBSAN_OPTIONS: halt_on_error=1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.lock
+      - run: ruff check . && ruff format --check .
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGRIDGUARD_SANITIZERS=${{ matrix.sanitizers }}
+      - run: cmake --build build --target gridguard_ied gridguard_edge gridguard_synthetic gridguard_wal_tests gridguard_physics_tests -j2
+      - run: ctest --test-dir build --output-on-failure
+      - run: python -m pytest -q --ignore=tests/test_bridges.py
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostics-${{ matrix.sanitizers }}
+          path: build/Testing/Temporary
+  compose:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      # Public fixtures for an isolated throwaway CI laboratory, not deployment secrets.
+      GRIDGUARD_TOKEN: ci-laboratory-token-only-0123456789
+      GRIDGUARD_PG_PASSWORD: ci-laboratory-password-only
+      GRIDGUARD_PG_DSN: postgresql://gridguard:ci-laboratory-password-only@archive/gridguard
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build
+      - run: python3 tests/compose_smoke.py
+      - name: Laboratory diagnostics
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop laboratory services
+        if: always()
+        run: docker compose down

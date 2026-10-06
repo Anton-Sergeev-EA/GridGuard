@@ -1,0 +1,56 @@
+services:
+  ied:
+    build: .
+    command: ["./build/gridguard_ied", "8102"]
+    networks: [lab]
+    restart: unless-stopped
+  archive:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: gridguard
+      POSTGRES_DB: gridguard
+      POSTGRES_PASSWORD: ${GRIDGUARD_PG_PASSWORD:?Set an archive password}
+    volumes:
+      - archive:/var/lib/postgresql/data
+      - ./deploy/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./deploy/timescale.sql:/docker-entrypoint-initdb.d/02-timescale.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gridguard -d gridguard"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [lab]
+  edge:
+    build: .
+    command: ["python", "-m", "gridguard.worker"]
+    environment:
+      GRIDGUARD_IED_HOST: ied
+      GRIDGUARD_WAL_ROTATION_BYTES: ${GRIDGUARD_WAL_ROTATION_BYTES:-0}
+      GRIDGUARD_LOCAL_RETENTION_SECONDS: ${GRIDGUARD_LOCAL_RETENTION_SECONDS:-0}
+      GRIDGUARD_PG_DSN: ${GRIDGUARD_PG_DSN:?Set a PostgreSQL connection string for archive}
+    depends_on:
+      archive: {condition: service_healthy}
+      ied: {condition: service_started}
+    volumes: ["spool:/app/work"]
+    networks: [lab]
+    restart: unless-stopped
+  api:
+    build: .
+    environment:
+      GRIDGUARD_TOKEN: ${GRIDGUARD_TOKEN:?Set an API token of at least 16 characters}
+      GRIDGUARD_EXPECTED_ASSETS: ${GRIDGUARD_EXPECTED_ASSETS:-transformer-lab-1}
+      GRIDGUARD_REQUIRE_ARCHIVE: ${GRIDGUARD_REQUIRE_ARCHIVE:-0}
+    volumes: ["spool:/app/work"]
+    ports: ["127.0.0.1:8000:8000"]
+    networks: [lab]
+    depends_on: [edge]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+networks:
+  lab:
+volumes:
+  spool:
+  archive:

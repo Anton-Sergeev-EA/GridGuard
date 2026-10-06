@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "gridguard"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["fastapi", "uvicorn", "psycopg[binary]"]
+[project.optional-dependencies]
+dev = ["pytest", "httpx", "ruff"]
+bridges = ["pyModbusTCP==0.3.0", "PyYAML==6.0.3", "asyncua>=1.1", "aiomqtt>=2.0", "c104>=2.0"]
+[tool.setuptools.packages.find]
+include = ["gridguard*"]
+[tool.setuptools.package-data]
+gridguard = ["dashboard.html"]
+"gridguard.scada" = ["LICENSE", "PROVENANCE.md"]
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = ["gridguard/scada"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["bridges: optional protocol stacks with real laboratory servers"]

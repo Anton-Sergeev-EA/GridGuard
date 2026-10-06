@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>GridGuard laboratory</title>
+<style>body{font:18px system-ui;background:#101923;color:#edf4fa;max-width:900px;margin:3rem auto;padding:1rem}header{color:#83d6c8}label,input,button{display:block;margin:1rem 0}input{padding:.5rem}pre{white-space:pre-wrap;border:1px solid #526578;padding:1rem}#status{color:#ffc973}</style>
+<header><h1>GridGuard</h1><p>Digital substation & condition monitoring laboratory</p></header>
+<p><strong>LABORATORY PLATFORM · Source labelled per sample · No field validation · No remaining life prediction</strong></p>
+<label>Session access token <input id="token" type="password" autocomplete="off"></label><button id="connect">Connect</button><p id="status">Disconnected</p><pre id="data">No telemetry</pre>
+<script>
+let token='', timer;
+async function refresh(){try{const r=await fetch('/api/latest',{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('HTTP '+r.status);const x=await r.json();document.querySelector('#status').textContent=x.stale?'STALE TELEMETRY':'Receiving '+x.sample.source+' measurements';document.querySelector('#data').textContent=JSON.stringify(x,null,2)}catch(e){document.querySelector('#status').textContent='Disconnected: '+e.message}}
+document.querySelector('#connect').onclick=()=>{token=document.querySelector('#token').value;document.querySelector('#token').value='';clearInterval(timer);refresh();timer=setInterval(refresh,1000)};
+</script></html>
