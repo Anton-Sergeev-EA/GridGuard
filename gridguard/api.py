@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
+from gridguard.features import summarize
 from gridguard.schema import Sample
 from gridguard.store import Store
 
@@ -109,6 +110,21 @@ def create_app(
             f"# TYPE gridguard_archive_ready gauge\ngridguard_archive_ready {archive_ready}\n",
             media_type="text/plain; version=0.0.4",
         )
+
+    @app.get("/api/features/{asset}")
+    def features(
+        asset: str, limit: int = 128, authorization: str | None = Header(default=None)
+    ) -> dict[str, object]:
+        authorize(authorization)
+        try:
+            result = summarize(store.history(asset, limit))
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        snapshot = store.latest_assets().get(asset)
+        result["stale"] = (
+            snapshot is None or time.time() - snapshot["sample"]["sample_ms"] / 1000 > freshness_s
+        )
+        return result
 
     @app.get("/", response_class=HTMLResponse)
     def dashboard() -> str:

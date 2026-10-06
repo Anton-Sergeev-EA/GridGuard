@@ -125,3 +125,12 @@ samples older than this age are eligible; the latest sample of every asset and
 all pending samples are retained. Reader checkpoints are preserved. PostgreSQL
 retention is a separate operator policy. This frees reusable SQLite pages, not
 necessarily filesystem bytes. It does not rotate the C++ WAL.
+
+Authenticated `GET /api/features/{asset}?limit=128` returns bounded scalar history
+statistics: mean, RMS, population standard deviation, peak and endpoint slope.
+The endpoint requires increasing timestamps and one acquisition/source contract;
+invalid quality causes abstention and stale history is explicitly marked.
+These are trends of scalar indicators, not spectral features of raw vibration.
+RUL remains null. The statistical definitions are compatible with the basic
+mean/RMS/std/peak definitions in ARGUS-NEURO; its waveform FFT and learned models
+are not reused because this telemetry does not contain a waveform.

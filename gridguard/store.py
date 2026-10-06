@@ -141,6 +141,17 @@ class Store:
                 (limit,),
             ).fetchall()
 
+    def history(self, asset: str, limit: int = 128) -> list[Sample]:
+        if not 2 <= limit <= 1024:
+            raise ValueError("history limit must be between 2 and 1024")
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT payload FROM samples WHERE asset=? "
+                "ORDER BY sample_ms DESC, rowid DESC LIMIT ?",
+                (asset, limit),
+            ).fetchall()
+        return [Sample.model_validate_json(row[0]) for row in reversed(rows)]
+
     def ack(self, identity: str) -> None:
         with self.connect() as db:
             db.execute("UPDATE samples SET exported=1 WHERE id=?", (identity,))
