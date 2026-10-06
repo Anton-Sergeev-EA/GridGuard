@@ -33,12 +33,16 @@ def export_once(store: Store, dsn: str) -> int:
     return exported
 
 
-def exporter(store: Store, dsn: str, stop: threading.Event) -> None:
+def exporter(store: Store, dsn: str, stop: threading.Event, retention_s: int = 0) -> None:
     delay = 0.25
     store.set_runtime("archive_enabled", 1.0)
     while not stop.is_set():
         try:
             export_once(store, dsn)
+            if retention_s:
+                removed = store.retain_exported(int((time.time() - retention_s) * 1000))
+                if removed:
+                    print(json.dumps({"event": "local_retention", "removed": removed}))
             store.set_runtime("archive_last_success", time.time())
             store.set_runtime("archive_connected", 1.0)
             delay = 0.25
@@ -50,11 +54,16 @@ def exporter(store: Store, dsn: str, stop: threading.Event) -> None:
 
 
 def main() -> None:
+    retention_s = int(os.environ.get("GRIDGUARD_LOCAL_RETENTION_SECONDS", "0"))
+    if retention_s < 0:
+        raise ValueError("retention must be nonnegative; zero disables it")
     store = Store(Path(os.environ.get("GRIDGUARD_DB", "work/gridguard.sqlite")))
     stop = threading.Event()
     dsn = os.environ.get("GRIDGUARD_PG_DSN")
     thread = (
-        threading.Thread(target=exporter, args=(store, dsn, stop), daemon=True) if dsn else None
+        threading.Thread(target=exporter, args=(store, dsn, stop, retention_s), daemon=True)
+        if dsn
+        else None
     )
     if thread:
         thread.start()

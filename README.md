@@ -118,3 +118,10 @@ checkpoint bytes and observation time. WAL size is the last reader observation,
 not an atomic snapshot with the writer; use observation time to detect stale metrics.
 A value of -1 means the worker has not reported WAL occupancy. The 128 MiB WAL cap
 still applies; automatic rotation is not implemented yet.
+
+`GRIDGUARD_LOCAL_RETENTION_SECONDS` enables bounded local history reclamation
+after successful archive export (default `0`, disabled). Only remote-acknowledged
+samples older than this age are eligible; the latest sample of every asset and
+all pending samples are retained. Reader checkpoints are preserved. PostgreSQL
+retention is a separate operator policy. This frees reusable SQLite pages, not
+necessarily filesystem bytes. It does not rotate the C++ WAL.

@@ -186,3 +186,30 @@ def test_incoherent_snapshot_rejected() -> None:
     data["channel_ms"] = (data["sample_ms"] - 1001, data["sample_ms"], data["sample_ms"])
     with pytest.raises(ValidationError):
         Sample.model_validate(data)
+
+
+def test_retention_preserves_pending_latest_and_checkpoint(tmp_path: Path) -> None:
+    store = Store(tmp_path / "retention.sqlite", capacity=3)
+    now = int(time.time() * 1000)
+    old_id, _ = store.insert(sample(now - 30_000), ("spool", 100))
+    store.insert(sample(now - 20_000), ("spool", 200))
+    latest_id, _ = store.insert(sample(now - 10_000), ("spool", 300))
+    store.ack(old_id)
+    store.ack(latest_id)
+    assert store.retain_exported(now) == 1
+    reopened = Store(store.path, capacity=3)
+    assert reopened.checkpoint("spool") == 300
+    assert reopened.latest()["id"] == latest_id
+    assert len(reopened.pending()) == 1
+    assert reopened.insert(sample(now))[1]
+    assert reopened.count() == 3
+
+
+def test_retention_keeps_last_sample_for_each_asset(tmp_path: Path) -> None:
+    store = Store(tmp_path / "assets.sqlite")
+    now = int(time.time() * 1000)
+    for asset in ("first", "second"):
+        identity, _ = store.insert(sample(now - 10_000).model_copy(update={"asset": asset}))
+        store.ack(identity)
+    assert store.retain_exported(now) == 0
+    assert set(store.latest_assets()) == {"first", "second"}

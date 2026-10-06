@@ -31,6 +31,25 @@ class Store:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS runtime (name TEXT PRIMARY KEY, value REAL NOT NULL)"
             )
+            db.execute("CREATE INDEX IF NOT EXISTS samples_asset_time ON samples(asset, sample_ms)")
+
+    def retain_exported(self, before_ms: int, limit: int = 1000) -> int:
+        """Reclaim remote-acknowledged history, preserving each asset's latest snapshot."""
+        if before_ms < 0 or limit < 1 or limit > 10_000:
+            raise ValueError("invalid retention bounds")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            result = db.execute(
+                "DELETE FROM samples WHERE id IN ("
+                "SELECT old.id FROM samples AS old "
+                "WHERE old.exported=1 AND old.sample_ms < ? "
+                "AND EXISTS (SELECT 1 FROM samples AS newer WHERE newer.asset=old.asset "
+                "AND (newer.sample_ms > old.sample_ms "
+                "OR (newer.sample_ms=old.sample_ms AND newer.rowid > old.rowid))) "
+                "ORDER BY old.sample_ms LIMIT ?)",
+                (before_ms, limit),
+            )
+            return result.rowcount
 
     def set_runtime(self, name: str, value: float) -> None:
         with self.connect() as db:
