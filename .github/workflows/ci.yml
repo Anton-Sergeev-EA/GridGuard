@@ -48,7 +48,7 @@ jobs:
       - run: pip install -r requirements.lock
       - run: ruff check . && ruff format --check .
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGRIDGUARD_SANITIZERS=${{ matrix.sanitizers }}
-      - run: cmake --build build --target gridguard_ied gridguard_edge gridguard_wal_tests gridguard_physics_tests -j2
+      - run: cmake --build build --target gridguard_ied gridguard_edge gridguard_synthetic gridguard_wal_tests gridguard_physics_tests -j2
       - run: ctest --test-dir build --output-on-failure
       - run: python -m pytest -q --ignore=tests/test_bridges.py
       - uses: actions/upload-artifact@v4

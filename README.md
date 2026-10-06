@@ -134,3 +134,11 @@ These are trends of scalar indicators, not spectral features of raw vibration.
 RUL remains null. The statistical definitions are compatible with the basic
 mean/RMS/std/peak definitions in ARGUS-NEURO; its waveform FFT and learned models
 are not reused because this telemetry does not contain a waveform.
+
+Generate reproducible evaluation traces with the same C++ physics as the IED:
+`python -m gridguard.evaluate --binary build/gridguard_synthetic --output work/evaluation`.
+The manifest records binary and trace hashes, actual alert/abstention counts and
+first-alert time in model seconds. Faults are present from the first step; these
+four deterministic traces are not an independent held-out population or field
+validation. Replay uses a fixed historical clock and normalized quality, explicitly
+labelled `synthetic-replay`; it is not evidence of wire-protocol interoperability.

@@ -15,6 +15,8 @@ FetchContent_Declare(iec61850 GIT_REPOSITORY https://github.com/mz-automation/li
 FetchContent_MakeAvailable(iec61850)
 add_executable(gridguard_ied cpp/ied.cpp)
 add_executable(gridguard_edge cpp/edge.cpp)
+add_executable(gridguard_synthetic cpp/synthetic.cpp)
+target_compile_options(gridguard_synthetic PRIVATE -Wall -Wextra -Wpedantic -Werror)
 foreach(target gridguard_ied gridguard_edge)
   target_link_libraries(${target} PRIVATE iec61850)
   target_include_directories(${target} SYSTEM PRIVATE ${iec61850_SOURCE_DIR}/src/iec61850/inc ${iec61850_SOURCE_DIR}/src/common/inc ${iec61850_SOURCE_DIR}/src/mms/inc ${iec61850_SOURCE_DIR}/hal/inc ${iec61850_SOURCE_DIR}/src/logging ${iec61850_BINARY_DIR}/config)

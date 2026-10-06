@@ -7,7 +7,9 @@ class Sample(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False, strict=True)
     asset: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,64}$")
     source: Literal["synthetic", "external-unvalidated"]
-    protocol: Literal["iec61850-mms-report", "modbus_tcp", "iec104", "opcua", "mqtt"]
+    protocol: Literal[
+        "iec61850-mms-report", "modbus_tcp", "iec104", "opcua", "mqtt", "synthetic-replay"
+    ]
     timestamp_basis: Literal["source", "gateway-received"] = "source"
     quality_basis: Literal["iec61850-source", "gateway-normalized"] = "iec61850-source"
     temperature_c: float = Field(ge=-50, le=250)
