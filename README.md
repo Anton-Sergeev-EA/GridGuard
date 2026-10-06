@@ -1,5 +1,7 @@
 # GridGuard — Digital Substation & Condition Monitoring Laboratory
 
+[Русский](README.ru.md) · **English** · [中文](README.zh.md) · [हिन्दी](README.hi.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md)
+
 A tested laboratory implementation of the **Digital Substation & Predictive
 Maintenance Platform**: a C++20 synthetic IED, a C++20 IEC 61850 MMS report client,
 a Python condition-monitoring pipeline, persistent local queue, PostgreSQL export
@@ -81,13 +83,14 @@ GRIDGUARD_TOKEN, GRIDGUARD_PG_PASSWORD and GRIDGUARD_PG_DSN; the DSN must use ho
 `archive`, database/user `gridguard` and your chosen password. Run
 `docker compose up --build`. Only the API is published on host loopback.
 
-The container recipe and TimescaleDB migration have **not been executed locally**
-because this workspace has no running Docker daemon. The MMS/persistence implementation has passed GitHub CI in ordinary and
-ASan/UBSan builds; [validation](docs/VALIDATION.md) records the tested revision.
-That CI result is not a successful container deployment.
-The hosted Compose/TimescaleDB smoke and archive/source recovery checks passed at
-adapter revision `4e0751a`; later jobs hit a GitHub hosted-runner acquisition failure.
-Current-head checks must be verified before merge.
+The container recipe was not executed locally because this workspace had no
+running Docker daemon. Hosted CI passed the Compose/TimescaleDB smoke and
+archive/source recovery checks, alongside the optional bridges and ordinary/
+ASan/UBSan builds, at approved implementation head `c9d6a9a`:
+[CI run](https://github.com/Anton-Sergeev-EA/GridGuard/actions/runs/37425956295).
+The resulting main implementation `9768a96` was checked locally (40 Python tests
+and 2 native CTests). These laboratory checks do not establish a production deployment.
+Checks must pass again at each reviewed revision.
 
 ## Implemented evidence and pending scope
 
@@ -98,7 +101,7 @@ results and revisions. The thermal model is illustrative, accelerated and
 uncalibrated; equilibrium residual is a feature, not a fault probability.
 
 GOOSE, SV, SCL commissioning, buffered report recovery, real-device datasets,
-learned predictive models, continuous retention,
+learned predictive models, high availability and
 multivendor/security validation remain outstanding. End-to-end container recovery
 is tested in hosted CI and must pass again at the reviewed head.
 No support for those features is claimed. This code is GPLv3 because it links
