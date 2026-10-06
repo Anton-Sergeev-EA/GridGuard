@@ -104,6 +104,8 @@ def create_app(
             f"gridguard_wal_checkpoint_bytes {runtime.get('wal_checkpoint_bytes', -1)}\n"
             f"# TYPE gridguard_wal_observed_at_seconds gauge\n"
             f"gridguard_wal_observed_at_seconds {runtime.get('wal_observed_at', 0)}\n"
+            f"# TYPE gridguard_wal_rotations gauge\n"
+            f"gridguard_wal_rotations {runtime.get('wal_rotations', 0)}\n"
             f"# TYPE gridguard_sample_age_seconds gauge\ngridguard_sample_age_seconds {age}\n"
             f"# TYPE gridguard_export_pending gauge\n"
             f"gridguard_export_pending {store.pending_count()}\n"

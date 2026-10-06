@@ -10,6 +10,7 @@ from types import FrameType
 
 import psycopg
 
+from gridguard.rotation import recover_retired, rotate_committed
 from gridguard.store import Store
 from gridguard.wal import consume_available, wait_for_wal
 
@@ -57,6 +58,9 @@ def main() -> None:
     retention_s = int(os.environ.get("GRIDGUARD_LOCAL_RETENTION_SECONDS", "0"))
     if retention_s < 0:
         raise ValueError("retention must be nonnegative; zero disables it")
+    rotation_bytes = int(os.environ.get("GRIDGUARD_WAL_ROTATION_BYTES", "0"))
+    if rotation_bytes and not 4096 <= rotation_bytes <= 64 * 1024 * 1024:
+        raise ValueError("rotation bytes must be zero or between 4096 and 64 MiB")
     store = Store(Path(os.environ.get("GRIDGUARD_DB", "work/gridguard.sqlite")))
     stop = threading.Event()
     dsn = os.environ.get("GRIDGUARD_PG_DSN")
@@ -77,31 +81,49 @@ def main() -> None:
         str(wal_path),
     ]
     try:
-        with subprocess.Popen(command) as edge:
+        recover_retired(store, wal_path)
+        while not stop.is_set():
+            with subprocess.Popen(command) as edge:
 
-            def terminate(signum: int, frame: FrameType | None) -> None:
-                stop.set()
-                edge.terminate()
+                def terminate(signum: int, frame: FrameType | None) -> None:
+                    stop.set()
+                    edge.terminate()
 
-            signal.signal(signal.SIGTERM, terminate)
-            signal.signal(signal.SIGINT, terminate)
-            try:
-                wait_for_wal(wal_path)
-                while not stop.is_set():
-                    try:
-                        consume_available(store, wal_path)
-                    except OverflowError:
-                        print('{"event":"archive_full","action":"backpressure"}', file=sys.stderr)
-                    if edge.poll() is not None:
-                        raise RuntimeError("edge stopped; inspect structured edge diagnostics")
-                    stop.wait(0.1)
-            finally:
-                edge.terminate()
+                signal.signal(signal.SIGTERM, terminate)
+                signal.signal(signal.SIGINT, terminate)
                 try:
-                    edge.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    edge.kill()
-                    edge.wait(timeout=5)
+                    wait_for_wal(wal_path)
+                    while not stop.is_set():
+                        try:
+                            consume_available(store, wal_path)
+                        except OverflowError:
+                            print(
+                                '{"event":"archive_full","action":"backpressure"}', file=sys.stderr
+                            )
+                        if rotation_bytes and wal_path.stat().st_size >= rotation_bytes:
+                            edge.terminate()
+                            edge.wait(timeout=5)
+                            consume_available(store, wal_path)
+                            rotate_committed(store, wal_path)
+                            store.set_runtime(
+                                "wal_rotations", store.runtime().get("wal_rotations", 0) + 1
+                            )
+                            print(
+                                json.dumps(
+                                    {"event": "wal_rotated", "source_report_gap_possible": True}
+                                )
+                            )
+                            break
+                        if edge.poll() is not None:
+                            raise RuntimeError("edge stopped; inspect structured edge diagnostics")
+                        stop.wait(0.1)
+                finally:
+                    edge.terminate()
+                    try:
+                        edge.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        edge.kill()
+                        edge.wait(timeout=5)
     finally:
         stop.set()
         if thread:

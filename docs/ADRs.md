@@ -44,8 +44,10 @@ hardware power-loss guarantee on storage that ignores flush semantics.
 Export uses at-least-once replay. The PostgreSQL primary key includes event hash
 and source time so an ACK loss after remote commit does not duplicate the remote
 row. A fixed total capacity of 100,000 local rows stops ingest with explicit
-backpressure. Archived rows are not automatically pruned: long-running retention
-and spool rotation must be implemented before continuous operation. SQLite capacity limits row count; the separate C++ WAL also caps its bytes.
+backpressure. Optional age retention prunes only remote-acknowledged rows while preserving
+each latest asset snapshot. Optional stopped-writer rotation retires only fully
+SQLite-committed segments using a durable handoff receipt; source reports during
+URCB restart can be lost. Both policies default to disabled. SQLite capacity limits row count; the separate C++ WAL also caps its bytes.
 Total filesystem usage is not bounded by those two settings. PostgreSQL is tested;
 TimescaleDB migration and Compose deployment passed a hosted smoke/recovery check
 at revision 4e0751a; they were not executed locally. Current-head CI remains a gate.
@@ -70,3 +72,14 @@ validated dataset. Cognivore remains outside the telemetry/control path. Its
 knowledge retrieval may later explain evidence with cited documents, but generated
 text cannot become a protection decision. No code from those repositories is
 redistributed in this initial slice; the linked libIEC61850 distribution is GPLv3.
+
+## ADR-006: scalar features and synthetic evaluation
+
+GridGuard telemetry carries scalar indicators, not sampled vibration waveforms.
+Window mean/RMS/population-std/peak and endpoint slopes therefore apply to these
+indicators. Reusing ARGUS FFT/model weights would violate its input and sampling
+contracts. The evaluation runner uses the actual C++ IED physics and records
+binary/trace hashes, measured alert rows, abstention and first-alert model time.
+The four deterministic traces establish regression behavior, not a held-out
+population result. The cooling scenario exposes a late threshold response; no
+RUL or field accuracy claim is introduced.

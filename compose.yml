@@ -25,6 +25,8 @@ services:
     command: ["python", "-m", "gridguard.worker"]
     environment:
       GRIDGUARD_IED_HOST: ied
+      GRIDGUARD_WAL_ROTATION_BYTES: ${GRIDGUARD_WAL_ROTATION_BYTES:-0}
+      GRIDGUARD_LOCAL_RETENTION_SECONDS: ${GRIDGUARD_LOCAL_RETENTION_SECONDS:-0}
       GRIDGUARD_PG_DSN: ${GRIDGUARD_PG_DSN:?Set a PostgreSQL connection string for archive}
     depends_on:
       archive: {condition: service_healthy}
@@ -36,6 +38,8 @@ services:
     build: .
     environment:
       GRIDGUARD_TOKEN: ${GRIDGUARD_TOKEN:?Set an API token of at least 16 characters}
+      GRIDGUARD_EXPECTED_ASSETS: ${GRIDGUARD_EXPECTED_ASSETS:-transformer-lab-1}
+      GRIDGUARD_REQUIRE_ARCHIVE: ${GRIDGUARD_REQUIRE_ARCHIVE:-0}
     volumes: ["spool:/app/work"]
     ports: ["127.0.0.1:8000:8000"]
     networks: [lab]

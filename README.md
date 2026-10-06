@@ -117,14 +117,14 @@ Operational metrics include local archive sample capacity, WAL size, consumed
 checkpoint bytes and observation time. WAL size is the last reader observation,
 not an atomic snapshot with the writer; use observation time to detect stale metrics.
 A value of -1 means the worker has not reported WAL occupancy. The 128 MiB WAL cap
-still applies; automatic rotation is not implemented yet.
+still applies. Optional controlled rotation is described below.
 
 `GRIDGUARD_LOCAL_RETENTION_SECONDS` enables bounded local history reclamation
 after successful archive export (default `0`, disabled). Only remote-acknowledged
 samples older than this age are eligible; the latest sample of every asset and
 all pending samples are retained. Reader checkpoints are preserved. PostgreSQL
 retention is a separate operator policy. This frees reusable SQLite pages, not
-necessarily filesystem bytes. It does not rotate the C++ WAL.
+necessarily filesystem bytes. C++ WAL rotation is a separate opt-in policy.
 
 Authenticated `GET /api/features/{asset}?limit=128` returns bounded scalar history
 statistics: mean, RMS, population standard deviation, peak and endpoint slope.
@@ -142,3 +142,13 @@ first-alert time in model seconds. Faults are present from the first step; these
 four deterministic traces are not an independent held-out population or field
 validation. Replay uses a fixed historical clock and normalized quality, explicitly
 labelled `synthetic-replay`; it is not evidence of wire-protocol interoperability.
+
+`GRIDGUARD_WAL_ROTATION_BYTES` enables controlled writer-stop rotation (default
+`0`, disabled; allowed threshold 4096 bytes–64 MiB). The supervisor joins the
+writer, commits every complete record to SQLite FULL, then durably renames and
+retires the redundant WAL. A durable SQLite handoff receipt supports cleanup-crash
+recovery and clears old inode checkpoints before reuse. Uncommitted/torn segments
+or a live writer block retirement. Records remain in SQLite until archive ACK
+and configured retention. Rotation restarts the URCB client: source reports during
+the interruption can be lost; diagnostics explicitly report this gap possibility.
+This is tested process-crash recovery, not physical power-loss validation.

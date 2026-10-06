@@ -32,6 +32,10 @@ class Store:
                 "CREATE TABLE IF NOT EXISTS runtime (name TEXT PRIMARY KEY, value REAL NOT NULL)"
             )
             db.execute("CREATE INDEX IF NOT EXISTS samples_asset_time ON samples(asset, sample_ms)")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS retired_wals "
+                "(source TEXT PRIMARY KEY, size INTEGER NOT NULL)"
+            )
 
     def retain_exported(self, before_ms: int, limit: int = 1000) -> int:
         """Reclaim remote-acknowledged history, preserving each asset's latest snapshot."""

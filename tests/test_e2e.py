@@ -6,10 +6,14 @@ from pathlib import Path
 
 import httpx
 import psycopg
+import pytest
 from test_mms import binaries, start_ied, unused_port
 
+from gridguard.store import Store
 
-def test_ied_edge_worker_api_postgres(tmp_path: Path) -> None:
+
+@pytest.mark.parametrize("rotation_bytes", [0, 4096])
+def test_ied_edge_worker_api_postgres(tmp_path: Path, rotation_bytes: int) -> None:
     """Exercise the real processes and HTTP listener, not an ASGI transport."""
     server, edge = binaries()
     dsn = os.environ.get("GRIDGUARD_TEST_PG")
@@ -26,6 +30,7 @@ def test_ied_edge_worker_api_postgres(tmp_path: Path) -> None:
         GRIDGUARD_DB=str(tmp_path / "spool.sqlite"),
         GRIDGUARD_TOKEN=token,
         GRIDGUARD_PG_DSN=dsn,
+        GRIDGUARD_WAL_ROTATION_BYTES=str(rotation_bytes),
     )
     ied = start_ied(server, port)
     log = (tmp_path / "processes.log").open("w+")
@@ -75,6 +80,21 @@ def test_ied_edge_worker_api_postgres(tmp_path: Path) -> None:
                 break
             time.sleep(0.05)
         assert row, "sample never reached the actual remote archive"
+        if rotation_bytes:
+            store = Store(tmp_path / "spool.sqlite")
+            for _ in range(200):
+                assert worker.poll() is None
+                if store.runtime().get("wal_rotations", 0) >= 1:
+                    break
+                time.sleep(0.05)
+            assert store.runtime().get("wal_rotations", 0) >= 1
+            before = store.count()
+            for _ in range(100):
+                assert worker.poll() is None
+                if store.count() > before:
+                    break
+                time.sleep(0.05)
+            assert store.count() > before, "new writer never resumed ingestion after rotation"
     finally:
         for process in (worker, api, ied):
             process.terminate()
