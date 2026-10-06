@@ -112,3 +112,9 @@ Run `python -m gridguard.bridge --config YOUR_CONFIG.json --source synthetic` fo
 or explicitly select `external-unvalidated` for external data without a field-validation claim.
 See [bridge mapping and limitations](docs/BRIDGES.md). The default Compose topology uses MMS;
 the optional Python adapters do not imply those protocols are implemented in the C++ gateway.
+
+Operational metrics include local archive sample capacity, WAL size, consumed
+checkpoint bytes and observation time. WAL size is the last reader observation,
+not an atomic snapshot with the writer; use observation time to detect stale metrics.
+A value of -1 means the worker has not reported WAL occupancy. The 128 MiB WAL cap
+still applies; automatic rotation is not implemented yet.

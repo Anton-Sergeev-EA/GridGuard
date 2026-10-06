@@ -13,12 +13,16 @@ def consume_available(store: Store, path: Path) -> int:
         status = path.stat()
         source = f"{path.resolve()}:{status.st_dev}:{status.st_ino}"
         offset = store.checkpoint(source)
+        store.set_runtime("wal_bytes", float(status.st_size))
+        store.set_runtime("wal_checkpoint_bytes", float(offset))
+        store.set_runtime("wal_observed_at", time.time())
         if offset > status.st_size:
             raise ValueError("WAL shrank behind its checkpoint")
         stream.seek(offset)
         while True:
             line = stream.readline(8193)
             if not line:
+                store.set_runtime("wal_checkpoint_bytes", float(stream.tell()))
                 return consumed
             if len(line) > 8192:
                 raise ValueError("WAL oversized record")

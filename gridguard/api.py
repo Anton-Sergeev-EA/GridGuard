@@ -95,6 +95,14 @@ def create_app(
         archive_ready = int(runtime.get("archive_connected") == 1.0 and 0 <= archive_age <= 15)
         return Response(
             f"# TYPE gridguard_samples gauge\ngridguard_samples {store.count()}\n"
+            f"# TYPE gridguard_local_capacity_samples gauge\n"
+            f"gridguard_local_capacity_samples {store.capacity}\n"
+            f"# TYPE gridguard_wal_bytes gauge\n"
+            f"gridguard_wal_bytes {runtime.get('wal_bytes', -1)}\n"
+            f"# TYPE gridguard_wal_checkpoint_bytes gauge\n"
+            f"gridguard_wal_checkpoint_bytes {runtime.get('wal_checkpoint_bytes', -1)}\n"
+            f"# TYPE gridguard_wal_observed_at_seconds gauge\n"
+            f"gridguard_wal_observed_at_seconds {runtime.get('wal_observed_at', 0)}\n"
             f"# TYPE gridguard_sample_age_seconds gauge\ngridguard_sample_age_seconds {age}\n"
             f"# TYPE gridguard_export_pending gauge\n"
             f"gridguard_export_pending {store.pending_count()}\n"

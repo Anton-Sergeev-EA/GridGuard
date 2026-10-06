@@ -118,6 +118,11 @@ def test_api_auth_readiness_replay_metrics(tmp_path: Path) -> None:
         assert client.get("/health/ready").status_code == 200
         assert client.get("/api/latest", headers=headers).json()["assessment"]["rul"] is None
         assert "gridguard_samples 1" in client.get("/metrics", headers=headers).text
+        assert (
+            "gridguard_local_capacity_samples 100000"
+            in client.get("/metrics", headers=headers).text
+        )
+        assert "gridguard_wal_bytes -1" in client.get("/metrics", headers=headers).text
         assert "No field validation" in client.get("/").text
         assert "Source labelled per sample" in client.get("/").text
 
