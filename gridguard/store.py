@@ -99,6 +99,21 @@ class Store:
             return None
         return {"id": row[0], "sample": json.loads(row[1]), "assessment": json.loads(row[2])}
 
+    def latest_assets(self) -> dict[str, dict[str, object]]:
+        """Return one consistent latest snapshot per observed asset."""
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT asset, id, payload, assessment FROM ("
+                "SELECT asset, id, payload, assessment, "
+                "ROW_NUMBER() OVER (PARTITION BY asset "
+                "ORDER BY sample_ms DESC, rowid DESC) AS rank "
+                "FROM samples) WHERE rank=1"
+            ).fetchall()
+        return {
+            row[0]: {"id": row[1], "sample": json.loads(row[2]), "assessment": json.loads(row[3])}
+            for row in rows
+        }
+
     def pending(self, limit: int = 100) -> list[tuple[str, int, str, str]]:
         with self.connect() as db:
             return db.execute(

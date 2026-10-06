@@ -42,3 +42,10 @@ without and with ASan/UBSan: https://github.com/Anton-Sergeev-EA/GridGuard/actio
 The subsequent C++ WAL change has a local reference-CRC/exclusive-writer/torn-tail
 CTest plus Python process-kill/replay/checksum tests; its CI must be checked at
 its own revision after publication.
+
+## 2026-10-06 follow-up
+
+At 8104ffa all four hosted jobs passed (bridges, Compose/TimescaleDB and native
+verification with sanitizers ON/OFF). The subsequent per-asset readiness change
+passed 32 Python tests and 2 native CTests locally with the sanitizer build and
+a real isolated PostgreSQL. This follow-up must pass its own hosted CI before merge.

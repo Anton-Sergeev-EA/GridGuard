@@ -17,8 +17,8 @@ platform request. Remaining engineering gates:
    condition-monitoring baselines. There are no field or RUL performance claims.
 5. Keep the actual Compose/TimescaleDB recovery CI gate green at the reviewed head.
    The gate passed at 4e0751a; hosted runner acquisition failed on later jobs.
-6. Extend existing telemetry/optional-archive readiness to every configured asset
-   and explicit spool occupancy. Add
+6. Configured/observed-asset readiness is implemented. Extend it with explicit
+   spool occupancy. Add
    metrics for reconnects, rejected input, dropped reports, commit/export delay.
 7. Complete portfolio fixes and test their affected repositories. Investigate the
    failing Currency Analytics Docker build; its unused test imports were isolated

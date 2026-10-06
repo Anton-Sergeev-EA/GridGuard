@@ -11,7 +11,11 @@ from gridguard.store import Store
 
 
 def create_app(
-    store: Store, token: str, freshness_s: float = 5.0, require_archive: bool = False
+    store: Store,
+    token: str,
+    freshness_s: float = 5.0,
+    require_archive: bool = False,
+    expected_assets: tuple[str, ...] = (),
 ) -> FastAPI:
     if len(token) < 16:
         raise ValueError("API token must be at least 16 characters")
@@ -27,14 +31,21 @@ def create_app(
 
     @app.get("/health/ready")
     def ready() -> dict[str, object]:
-        snapshot = store.latest()
-        if snapshot is None:
+        snapshots = store.latest_assets()
+        if not snapshots:
             raise HTTPException(503, "No telemetry")
-        age = time.time() - snapshot["sample"]["sample_ms"] / 1000
-        if age < -1 or age > freshness_s:
-            raise HTTPException(503, "Telemetry stale or clock invalid")
-        if snapshot["assessment"]["status"] != "ready":
-            raise HTTPException(503, "Invalid telemetry quality")
+        if set(expected_assets) - snapshots.keys():
+            raise HTTPException(503, "Configured asset has no telemetry")
+        now = time.time()
+        ages = []
+        for snapshot in snapshots.values():
+            age = now - snapshot["sample"]["sample_ms"] / 1000
+            if age < -1 or age > freshness_s:
+                raise HTTPException(503, "Asset telemetry stale or clock invalid")
+            if snapshot["assessment"]["status"] != "ready":
+                raise HTTPException(503, "Invalid asset telemetry quality")
+            ages.append(age)
+        sources = sorted({item["sample"]["source"] for item in snapshots.values()})
         runtime = store.runtime()
         archive_age = time.time() - runtime.get("archive_last_success", 0.0)
         archive_ready = runtime.get("archive_connected") == 1.0 and 0 <= archive_age <= 15
@@ -42,8 +53,9 @@ def create_app(
             raise HTTPException(503, "Archive unavailable or exporter heartbeat stale")
         return {
             "status": "ready",
-            "source": snapshot["sample"]["source"],
-            "age_s": age,
+            "source": sources[0] if len(sources) == 1 else "mixed",
+            "age_s": max(ages),
+            "assets": sorted(snapshots),
             "archive_ready": archive_ready,
             "archive_required": require_archive,
         }
@@ -103,4 +115,9 @@ def app_factory() -> FastAPI:
         Store(Path(os.environ.get("GRIDGUARD_DB", "work/gridguard.sqlite"))),
         token,
         require_archive=os.environ.get("GRIDGUARD_REQUIRE_ARCHIVE", "0") == "1",
+        expected_assets=tuple(
+            asset.strip()
+            for asset in os.environ.get("GRIDGUARD_EXPECTED_ASSETS", "").split(",")
+            if asset.strip()
+        ),
     )

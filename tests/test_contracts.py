@@ -148,6 +148,25 @@ def test_no_default_token(tmp_path: Path) -> None:
         create_app(Store(tmp_path / "archive.sqlite"), "")
 
 
+def test_ready_requires_every_configured_asset(tmp_path: Path) -> None:
+    store = Store(tmp_path / "assets.sqlite")
+    first = sample()
+    store.insert(first)
+    with TestClient(create_app(store, TOKEN, expected_assets=(first.asset, "second"))) as client:
+        assert client.get("/health/ready").status_code == 503
+        stale = sample(first.sample_ms - 10_000).model_copy(update={"asset": "second"})
+        store.insert(stale)
+        assert client.get("/health/ready").status_code == 503
+        bad = sample(quality=(2049, 2048, 2048)).model_copy(update={"asset": "second"})
+        store.insert(bad)
+        assert client.get("/health/ready").status_code == 503
+        recovered = sample().model_copy(update={"asset": "second"})
+        store.insert(recovered)
+        ready = client.get("/health/ready")
+        assert ready.status_code == 200
+        assert ready.json()["assets"] == ["second", first.asset]
+
+
 def test_asset_order_is_independent(tmp_path: Path) -> None:
     store = Store(tmp_path / "archive.sqlite")
     first = sample()

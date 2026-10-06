@@ -63,7 +63,10 @@ bad-quality telemetry. `/api/latest` and `/metrics` require bearer authenticatio
 Readiness describes local ingestion by default and separately reports archive health.
 Set `GRIDGUARD_REQUIRE_ARCHIVE=1` to require a successful exporter heartbeat within
 15 seconds. `/metrics` exposes pending exports and archive readiness. This does not
-verify delivery of every sample or readiness of every configured asset.
+verify delivery of every sample. Readiness checks every observed asset; set
+`GRIDGUARD_EXPECTED_ASSETS=transformer-lab-1,second` to also reject a configured
+asset that has never reported. Stale or invalid-quality assets cause HTTP 503.
+Removing a retired asset from the archive is not automated.
 
 The edge stores synced reports in `work/gridguard.wal` (128 MiB cap).
 The worker commits samples and read checkpoints to `work/gridguard.sqlite`. The supervisor
